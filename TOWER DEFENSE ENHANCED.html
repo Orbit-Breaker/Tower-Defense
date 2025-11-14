@@ -1,0 +1,1734 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>Tower Defense - Ultimate Edition v2</title>
+    <style>
+        /* Import modern fonts */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap');
+        :root{
+            --bg-1:#071029;
+            --bg-2:#0b1830;
+            --glass: rgba(255,255,255,0.03);
+            --muted: #c8d7e6;
+            --muted-2:#8ea6bf;
+            --accent:#00ccff;
+            --accent-2:#00ff88;
+            --danger:#ff6b6b;
+            --panel: rgba(10,18,30,0.6);
+            --card-border: rgba(0,204,255,0.08);
+            --glass-blur: 8px;
+        }
+        *{box-sizing:border-box}
+        html,body{height:100%;margin:0;font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,Arial; background:linear-gradient(180deg,var(--bg-1),var(--bg-2));color:var(--muted);overflow:hidden;-webkit-font-smoothing:antialiased}
+
+        /* Home screen */
+        #homeScreen{position:fixed;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:18px;padding:20px;background:linear-gradient(180deg,rgba(3,8,20,0.6),rgba(2,6,14,0.9));backdrop-filter:blur(6px);z-index:2000}
+        #homeTitle{font-size:56px;font-weight:800;margin:0;background:linear-gradient(90deg,var(--accent-2),var(--accent));-webkit-background-clip:text;background-clip:text;color:transparent;letter-spacing:3px}
+        #startGameBtn{padding:12px 34px;font-size:18px;font-weight:700;background:linear-gradient(90deg,var(--accent-2),var(--accent));color:#001;border:none;border-radius:16px;cursor:pointer;transition:transform .18s,box-shadow .18s;box-shadow:0 10px 40px rgba(0,204,255,0.06)}
+        #startGameBtn:hover{transform:translateY(-6px);box-shadow:0 24px 60px rgba(0,204,255,0.12)}
+
+        @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+        @keyframes slideUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes glow{0%{text-shadow:0 0 8px rgba(0,204,255,0.4)}50%{text-shadow:0 0 16px rgba(0,204,255,0.8)}100%{text-shadow:0 0 8px rgba(0,204,255,0.4)}}
+        @keyframes float{0%,100%{transform:translateY(0px)}50%{transform:translateY(-4px)}}
+        @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+
+        /* Layout */
+        #game{display:none;height:100vh;padding:18px;gap:18px;align-items:flex-start}
+        #game.show{display:flex}
+
+        canvas{flex:1;min-width:720px;height:calc(100vh - 36px);background:linear-gradient(180deg,#07101b,#0b1a2b);border-radius:14px;box-shadow:inset 0 0 40px rgba(0,0,0,0.6),0 20px 60px rgba(2,10,30,0.6);border:1px solid rgba(255,255,255,0.02);transition:flex .3s cubic-bezier(0.16,1,0.3,1)}
+
+        /* Side UI */
+        #ui{width:380px;display:flex;flex-direction:column;gap:14px;max-height:calc(100vh - 36px);overflow:auto;padding:8px;transition:all .3s cubic-bezier(0.16,1,0.3,1)}
+        #ui.collapsed{width:0;opacity:0;overflow:hidden;pointer-events:none}
+        #toggleBtn{position:fixed;right:18px;top:18px;width:42px;height:42px;background:linear-gradient(90deg,var(--accent-2),var(--accent));border:none;border-radius:12px;cursor:pointer;color:#001;font-weight:800;z-index:100;box-shadow:0 10px 30px rgba(0,204,255,0.08)}
+
+        /* Panels - glass cards */
+        .panel{background:linear-gradient(180deg,var(--panel),rgba(6,12,20,0.5));backdrop-filter:blur(var(--glass-blur));border-radius:12px;padding:16px;border:1px solid var(--card-border);box-shadow:0 8px 30px rgba(2,10,30,0.6);transition:all .2s ease}
+        .panel:hover{background:linear-gradient(180deg,rgba(10,18,30,0.7),rgba(8,14,24,0.6));border-color:rgba(0,204,255,0.16)}
+        .panel h2{margin:0 0 12px 0;color:var(--accent-2);font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase}
+        .panel .small{color:var(--muted-2);font-size:12px}
+
+        /* Buttons */
+        .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border-radius:12px;background:linear-gradient(90deg,var(--accent-2),var(--accent));color:#041026;font-weight:700;border:none;cursor:pointer;box-shadow:0 8px 30px rgba(0,204,255,0.06);transition:all .15s cubic-bezier(0.16,1,0.3,1);font-size:13px}
+        .btn:hover{transform:translateY(-3px);box-shadow:0 12px 40px rgba(0,204,255,0.12)}
+        .btn:active{transform:translateY(-1px)}
+        .btn.gray{background:transparent;color:var(--muted-2);border:1px solid rgba(255,255,255,0.05);transition:all .15s}
+
+        /* Inventory / tower list */
+        .tower-btn{display:flex;align-items:center;gap:12px;padding:12px;border-radius:10px;background:linear-gradient(180deg,rgba(0,204,255,0.03),rgba(0,128,200,0.02));border:1px solid rgba(0,204,255,0.08);cursor:pointer;transition:all .2s cubic-bezier(0.16,1,0.3,1);position:relative}
+        .tower-btn:hover{transform:translateX(4px);box-shadow:0 12px 36px rgba(0,204,255,0.12);border-color:rgba(0,204,255,0.2);background:linear-gradient(180deg,rgba(0,204,255,0.08),rgba(0,128,200,0.04))}
+        .tower-btn.active{border-color:var(--accent);background:linear-gradient(180deg,rgba(0,204,255,0.12),rgba(0,128,200,0.06));box-shadow:inset 0 0 12px rgba(0,204,255,0.08)}
+        .tower-chip{width:48px;height:48px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;color:#001;flex-shrink:0}
+        .small{font-size:11px;color:var(--muted-2)}
+        #placementHint{height:24px;color:var(--accent-2);text-align:center;font-weight:700;font-size:12px;letter-spacing:0.5px}
+
+        /* Inventory items */
+        .inventory-item{padding:10px;border-radius:8px;background:linear-gradient(180deg,rgba(0,204,255,0.02),rgba(0,128,200,0.01));border:1px solid rgba(0,204,255,0.06);cursor:pointer;transition:all .15s;font-size:12px}
+        .inventory-item:hover{transform:scale(1.03);border-color:rgba(0,204,255,0.16);box-shadow:0 8px 24px rgba(0,204,255,0.08)}
+        .inventory-item.consumed{opacity:0.5;border-color:rgba(255,255,255,0.02)}
+
+        /* Overlays */
+        .overlayCenter{position:fixed;inset:0;display:flex;justify-content:center;align-items:center;z-index:2000}
+        #tutorialOverlay{display:none}
+        .tutorialBox{max-width:680px;padding:28px;border-radius:12px;background:linear-gradient(180deg,rgba(10,16,26,0.7),rgba(6,10,18,0.85));border:1px solid rgba(255,255,255,0.02);box-shadow:0 20px 80px rgba(0,0,0,0.6)}
+        .tutorialBox h2{color:var(--accent-2);margin:0 0 8px 0}
+        .tutorialBox p{color:var(--muted-2)}
+
+        /* Alerts / modals */
+        .alertBig{font-weight:900;letter-spacing:3px;text-transform:uppercase;color:var(--accent-2);text-shadow:0 0 40px rgba(0,255,136,0.06)}
+
+        /* Wave unlock */
+        .waveBox{background:linear-gradient(180deg,rgba(6,12,20,0.95),rgba(4,8,14,0.98));padding:24px;border-radius:12px;border:2px solid rgba(0,204,255,0.1);max-width:720px;color:var(--muted);box-shadow:0 20px 60px rgba(2,10,30,0.8)}
+        .waveBox h2{color:var(--accent);margin:0 0 8px 0;font-size:24px;font-weight:800}
+        .waveBox p{line-height:1.5;margin:6px 0}
+        .waveBox .close-btn{margin-top:16px;padding:10px 20px}
+
+        /* Pulse & fade */
+        @keyframes waveFadeOut{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(-12px)}}
+        .waveFadeOut{animation:waveFadeOut .45s ease forwards}
+        @keyframes pulseRing{0%{transform:scale(1);box-shadow:0 0 0 rgba(0,204,255,0)}50%{transform:scale(1.06);box-shadow:0 0 20px rgba(0,204,255,0.35)}100%{transform:scale(1);box-shadow:0 0 0 rgba(0,204,255,0)}}
+        .pulseHighlight{animation:pulseRing 1s ease-in-out infinite}
+
+        /* Completion / defeat */
+        .completionBox{padding:28px;border-radius:12px;background:linear-gradient(180deg,rgba(6,12,20,0.9),rgba(4,8,14,0.95));border:1px solid rgba(255,255,255,0.02);max-width:720px}
+        .completionBox h1{color:var(--accent);margin:0 0 8px 0}
+
+        /* SVG icons */
+        svg symbol{display:none}
+        .icon{width:20px;height:20px;display:inline-block;fill:currentColor}
+        
+        /* Dev console visuals */
+        #devConsole{border-top:2px solid rgba(0,204,255,0.08);font-family:'JetBrains Mono',monospace}
+        #consoleOutput{border-bottom:1px solid rgba(255,255,255,0.02)}
+        #consoleInputField{background:transparent;border:1px solid rgba(255,255,255,0.03);color:var(--accent-2)}
+
+        /* Tiny tweaks */
+        .tyrantAlertText{font-size:56px;color:var(--accent-2)}
+        .bossAlertText{font-size:44px;color:var(--danger)}
+    </style>
+</head>
+<body>
+<!-- Icon sprite defs -->
+<svg style="display:none">
+  <defs>
+    <symbol id="icon-tower" viewBox="0 0 24 24"><rect x="4" y="8" width="4" height="8" fill="currentColor"/><rect x="10" y="4" width="4" height="12" fill="currentColor"/><rect x="16" y="6" width="4" height="10" fill="currentColor"/><rect x="2" y="18" width="20" height="2" fill="currentColor"/></symbol>
+    <symbol id="icon-zap" viewBox="0 0 24 24"><path d="M13 2L3 14h8l-1 8 10-12h-8l1-8z" fill="currentColor"/></symbol>
+    <symbol id="icon-shield" viewBox="0 0 24 24"><path d="M12 2L4 6v7c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V6l-8-4z" fill="currentColor"/></symbol>
+    <symbol id="icon-dollar" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2m0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8m3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5m-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11m3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z" fill="currentColor"/></symbol>
+  </defs>
+</svg>
+<div id="homeScreen">
+    <div id="homeTitle">TOWER DEFENSE</div>
+    <button id="startGameBtn">START GAME</button>
+</div>
+
+<div id="game">
+    <button id="toggleBtn">◀</button>
+    <canvas id="c" width="960" height="640"></canvas>
+    <div id="ui">
+        <div class="panel">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div>
+                    <h2 style="margin:0;color:#00ff88">Defense HQ</h2>
+                    <div class="small">Wave-based strategy</div>
+                </div>
+                <div style="text-align:right">
+                    <div style="font-weight:700;color:#00ff88" id="money">$1000</div>
+                    <div class="small" id="base">HP: 100</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>Tower Units</h2>
+            <div id="towerList">
+                <div class="tower-btn" data-type="scout">
+                    <div style="width:40px;height:40px;background:linear-gradient(135deg,#00ccff,#0088ff);border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:700;color:#000">S</div>
+                    <div>
+                        <div style="font-weight:700;color:#00ccff">Scout</div>
+                        <div class="small">Fast • Low damage</div>
+                        <div class="small" style="color:#00ff88">Cost: $300</div>
+                    </div>
+                </div>
+
+                <div class="tower-btn" data-type="ranger">
+                    <div style="width:40px;height:40px;background:linear-gradient(135deg,#00ff88,#00cc66);border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:700;color:#000">R</div>
+                    <div>
+                        <div style="font-weight:700;color:#00ff88">Ranger</div>
+                        <div class="small">Long range • High dmg</div>
+                        <div class="small" style="color:#00ff88">Cost: $3000</div>
+                    </div>
+                </div>
+
+                <div class="tower-btn" data-type="cannon">
+                    <div style="width:40px;height:40px;background:linear-gradient(135deg,#ff8800,#ff5500);border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:700;color:#000">C</div>
+                    <div>
+                        <div style="font-weight:700;color:#ffaa44">Cannon</div>
+                        <div class="small">Splash • Slow fire</div>
+                        <div class="small" style="color:#00ff88">Cost: $1000</div>
+                    </div>
+                </div>
+
+                <div class="tower-btn" data-type="laser">
+                    <div style="width:40px;height:40px;background:linear-gradient(135deg,#ff00ff,#cc00ff);border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:700;color:#000">L</div>
+                    <div>
+                        <div style="font-weight:700;color:#ff88ff">Laser</div>
+                        <div class="small">Pierce • Multiple hits</div>
+                        <div class="small" style="color:#00ff88">Cost: $20000</div>
+                    </div>
+                </div>
+
+                <div class="tower-btn" data-type="inferno" style="display:none" id="tower-inferno">
+                    <div style="width:40px;height:40px;background:linear-gradient(135deg,#ff6600,#ff2200);border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:700;color:#000">🔥</div>
+                    <div>
+                        <div style="font-weight:700;color:#ff4400">Inferno</div>
+                        <div class="small">Heavy splash • Hot fire</div>
+                        <div class="small" style="color:#00ff88">Cost: $35000</div>
+                    </div>
+                </div>
+
+                <div class="tower-btn" data-type="tesla" style="display:none" id="tower-tesla">
+                    <div style="width:40px;height:40px;background:linear-gradient(135deg,#00ffff,#0088ff);border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:700;color:#000">⚡</div>
+                    <div>
+                        <div style="font-weight:700;color:#00ffff">Tesla</div>
+                        <div class="small">Long range • Chains</div>
+                        <div class="small" style="color:#00ff88">Cost: $45000</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="placementHint" class="small">Select a tower to place</div>
+        </div>
+
+        <div class="panel">
+            <h2>Power-ups</h2>
+            <div id="shopUpgrades" style="display:flex;flex-direction:column;gap:6px">
+                <div class="tower-btn" data-upgrade="dmgBoost" style="margin-bottom:0">
+                    <div style="width:40px;height:40px;background:linear-gradient(135deg,#ffaa00,#ff8800);border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:700;color:#000">+</div>
+                    <div>
+                        <div style="font-weight:700;color:#ffaa44">Damage Boost</div>
+                        <div class="small">+15% damage all towers</div>
+                        <div class="small" style="color:#00ff88">Cost: $350</div>
+                    </div>
+                </div>
+                <div class="tower-btn" data-upgrade="speedBoost" style="margin-bottom:0">
+                    <div style="width:40px;height:40px;background:linear-gradient(135deg,#88ff00,#66ff00);border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:700;color:#000">→</div>
+                    <div>
+                        <div style="font-weight:700;color:#88ff44">Speed Boost</div>
+                        <div class="small">+8% fire rate all towers</div>
+                        <div class="small" style="color:#00ff88">Cost: $300</div>
+                    </div>
+                </div>
+                <div class="tower-btn" data-upgrade="rangeBoost" style="margin-bottom:0">
+                    <div style="width:40px;height:40px;background:linear-gradient(135deg,#0088ff,#0066ff);border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:700;color:#000">◯</div>
+                    <div>
+                        <div style="font-weight:700;color:#00ccff">Range Boost</div>
+                        <div class="small">+12% range all towers</div>
+                        <div class="small" style="color:#00ff88">Cost: $400</div>
+                    </div>
+                </div>
+
+                <div class="tower-btn" data-upgrade="critChance" style="margin-bottom:0;display:none" id="upgrade-crit">
+                    <div style="width:40px;height:40px;background:linear-gradient(135deg,#ff00ff,#ff0088);border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:700;color:#000">✦</div>
+                    <div>
+                        <div style="font-weight:700;color:#ff00ff">Crit Chance</div>
+                        <div class="small">+25% damage on crits</div>
+                        <div class="small" style="color:#00ff88">Cost: $600</div>
+                    </div>
+                </div>
+
+                <div class="tower-btn" data-upgrade="bounceShot" style="margin-bottom:0;display:none" id="upgrade-bounce">
+                    <div style="width:40px;height:40px;background:linear-gradient(135deg,#ffff00,#ffcc00);border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:700;color:#000">◉</div>
+                    <div>
+                        <div style="font-weight:700;color:#ffff00">Bounce Shot</div>
+                        <div class="small">+40% splash radius</div>
+                        <div class="small" style="color:#00ff88">Cost: $550</div>
+                    </div>
+                </div>
+
+                <div class="tower-btn" data-upgrade="weakness" style="margin-bottom:0;display:none" id="upgrade-weakness">
+                    <div style="width:40px;height:40px;background:linear-gradient(135deg,#88ff00,#66ff00);border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:700;color:#000">↓</div>
+                    <div>
+                        <div style="font-weight:700;color:#88ff44">Enemy Weakness</div>
+                        <div class="small">-20% enemy HP</div>
+                        <div class="small" style="color:#00ff88">Cost: $700</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                <h2 style="margin:0">Combat</h2>
+                <div class="small" style="color:#00ff88">Wave <span id="waveNum">0</span></div>
+            </div>
+            <div style="display:flex;gap:8px">
+                <div class="btn" id="startWaveBtn">Start Wave</div>
+                <div class="btn gray" id="fastForwardBtn">x2 Speed</div>
+            </div>
+        </div>
+
+        <div class="panel" id="upgradePanel" style="display:none">
+            <h2>Tower Details</h2>
+            <div id="towerStats" class="small"></div>
+            <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+                <div class="btn" id="upgradeBtn">Upgrade</div>
+                <div class="btn gray" id="sellBtn">Sell</div>
+                <div class="btn gray" id="storeBtn">Store</div>
+            </div>
+            <div class="small" style="margin-top:8px;color:#00ff88" id="upgradeCost"></div>
+        </div>
+
+        <div class="panel" style="display:flex;flex-direction:column">
+            <h2 style="margin-top:0">Vault <span class="small" id="invCount">(0/8, 0/3)</span></h2>
+            <div id="inventoryPanel" style="display:flex;flex-direction:column;gap:4px">
+                <div class="small" style="color:#666">Empty</div>
+            </div>
+        </div>
+
+        <div class="panel small" id="tips">
+            <div style="margin-bottom:8px"><span style="color:#00ff88;font-weight:700;text-transform:uppercase">info</span> <span class="btn gray" id="tutorialBtn" style="padding:4px 8px;font-size:11px;margin:0">?</span></div>
+            <ul style="margin:0;padding-left:16px;font-size:11px;line-height:1.5">
+                <li>Build towers to defend</li>
+                <li>Click towers to manage</li>
+                <li>Use vault for storage</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<div id="tutorialOverlay" style="display:none">
+    <div class="tutorialBox">
+        <h2>⚔️ Battle Strategy ⚔️</h2>
+        <p><strong>OBJECTIVE:</strong> Defend your base from waves of enemies!</p>
+        <p><strong>PLACE TOWERS:</strong> Click a tower type, then click the canvas. Don't place on paths!</p>
+        <p><strong>UPGRADE TOWERS:</strong> Click placed towers to upgrade them for damage/range/speed.</p>
+        <p><strong>MANAGE INVENTORY:</strong> Click towers then "Store" to save for later (max 8 towers).</p>
+        <p><strong>BUY POWER-UPS:</strong> Purchase global upgrades to boost all towers at once!</p>
+        <p><strong>EARNING MONEY:</strong> Defeat enemies to earn cash. Spend wisely—upgrades cost a lot!</p>
+        <p style="color:#00ff88;font-weight:700">Good luck, Commander! 🎯</p>
+        <button id="closeTutorialBtn">ENGAGE</button>
+    </div>
+</div>
+
+<div id="bossAlertOverlay" style="display:none">
+    <div class="bossAlertText">⚠️ BOSS WAVE ⚠️</div>
+</div>
+
+<div id="tyrantAlertOverlay" style="display:none">
+    <div class="tyrantAlertText">👑 TYRANT AWAKENS 👑</div>
+</div>
+
+<div id="gameCompletionOverlay" style="display:none">
+    <div class="completionBox">
+        <h1>🏆 VICTORY 🏆</h1>
+        <p style="color:#00ff88;font-size:24px;font-weight:700">The Tyrant Has Been Defeated!</p>
+        <p>You have successfully defended the realm against the ultimate threat. The tower defense era is complete.</p>
+        <div class="stats">
+            <div><strong>Final Wave:</strong> <span id="finalWave">50</span></div>
+            <div><strong>Final Money:</strong> <span id="finalMoney">$0</span></div>
+            <div><strong>Towers Deployed:</strong> <span id="finalTowers">0</span></div>
+            <div><strong>Enemies Defeated:</strong> <span id="finalKills">0</span></div>
+        </div>
+        <button class="restart-btn" id="restartBtn">PLAY AGAIN</button>
+    </div>
+</div>
+
+<div id="gameDefeatOverlay" style="display:none">
+    <div class="completionBox" style="border-color:#ff3333;background:linear-gradient(135deg,#3a1a1a 0%,#2a0a0a 100%)">
+        <h1 style="color:#ff3333">💀 DEFEATED 💀</h1>
+        <p style="color:#ff6666;font-size:24px;font-weight:700">The Defense Failed!</p>
+        <p>The enemy forces have overwhelmed your defenses. Better luck next time!</p>
+        <div class="stats">
+            <div><strong style="color:#00ff88">Waves Survived:</strong> <span id="defeatWave">0</span></div>
+            <div><strong style="color:#00ff88">Final Money:</strong> <span id="defeatMoney">$0</span></div>
+            <div><strong style="color:#00ff88">Towers Built:</strong> <span id="defeatTowers">0</span></div>
+            <div><strong style="color:#00ff88">Enemies Slain:</strong> <span id="defeatKills">0</span></div>
+        </div>
+        <button class="restart-btn" id="defeatRestartBtn" style="background:linear-gradient(45deg,#ff3333,#ff0000)">TRY AGAIN</button>
+    </div>
+</div>
+
+    <!-- Wave 10 Unlock Overlay -->
+    <div id="wave10Overlay" style="display:none">
+        <div class="waveBox">
+            <h2>🔓 Wave 10 Reached!</h2>
+            <p>New towers and power-ups have been unlocked. Check them out in the store.</p>
+            <div class="list">
+                <strong>New Towers:</strong>
+                <ul>
+                    <li><strong>Inferno</strong> — Heavy splash damage</li>
+                    <li><strong>Tesla</strong> — Long range piercing</li>
+                </ul>
+                <strong>New Power-ups:</strong>
+                <ul>
+                    <li><strong>Crit Chance</strong> — Burst damage</li>
+                    <li><strong>Bounce Shot</strong> — Bigger explosions</li>
+                    <li><strong>Enemy Weakness</strong> — Reduce enemy health</li>
+                </ul>
+                <strong>Vault Expanded:</strong>
+                <ul>
+                    <li>Tower capacity: 8 → 12</li>
+                    <li>Upgrade capacity: 3 → 5</li>
+                </ul>
+            </div>
+            <button class="close-btn" id="wave10CloseBtn">Got it</button>
+        </div>
+    </div>
+
+<div id="devConsoleOverlay" style="display:none">
+    <div id="devConsole">
+        <div id="consoleOutput"></div>
+        <div id="consoleInput">
+            <span style="color:#00ff88;padding:6px">></span>
+            <input id="consoleInputField" type="text" placeholder="dev console..." />
+        </div>
+    </div>
+</div>
+
+<script>
+/* Tower Defense Game - Ultimate Edition */
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const homeScreen = document.getElementById('homeScreen');
+const gameDiv = document.getElementById('game');
+const startGameBtn = document.getElementById('startGameBtn');
+
+// Game state
+let money = 2000;
+let baseHP = 100;
+let waveNumber = 0;
+let isPlacing = null;
+let placePreview = null;
+let gameSpeed = 1;
+
+// Global upgrade multipliers
+let globalDmgMult = 1;
+let globalSpeedMult = 1;
+let globalRangeMult = 1;
+
+// Inventory system
+let inventory = { towers: [], upgrades: [] };
+let INV_MAX_TOWERS = 8;
+let INV_MAX_UPGRADES = 3;
+
+// Dev Console
+let devConsoleOpen = false;
+let unboundSequence = '';
+const consoleOutput = document.getElementById('consoleOutput');
+const consoleInputField = document.getElementById('consoleInputField');
+const devConsoleOverlay = document.getElementById('devConsoleOverlay');
+
+function logToConsole(msg, type = 'log'){
+    const line = document.createElement('div');
+    line.className = `console-${type}`;
+    line.textContent = `[${type.toUpperCase()}] ${msg}`;
+    consoleOutput.appendChild(line);
+    consoleOutput.scrollTop = consoleOutput.scrollHeight;
+}
+
+function executeConsoleCommand(cmd){
+    logToConsole(cmd, 'info');
+    const args = cmd.trim().split(' ');
+    const command = args[0].toLowerCase();
+    
+    try {
+        if(command === 'help'){
+            logToConsole('Available commands:', 'log');
+            logToConsole('  money [amount] - Set money', 'log');
+            logToConsole('  hp [amount] - Set base HP', 'log');
+            logToConsole('  wave [number] - Set wave number', 'log');
+            logToConsole('  kill - Kill all enemies', 'log');
+            logToConsole('  clear - Clear towers and enemies', 'log');
+            logToConsole('  stats - Show game stats', 'log');
+            logToConsole('  tower [type] - Add tower at random location', 'log');
+            logToConsole('  upgrade [level] - Upgrade selected tower to level', 'log');
+            logToConsole('  close - Close console', 'log');
+        } else if(command === 'money'){
+            const amount = parseInt(args[1]);
+            if(!isNaN(amount)){
+                setMoney(amount);
+                logToConsole(`Money set to $${amount}`, 'log');
+            } else {
+                logToConsole('Usage: money [amount]', 'error');
+            }
+        } else if(command === 'hp'){
+            const amount = parseInt(args[1]);
+            if(!isNaN(amount)){
+                setBase(amount);
+                logToConsole(`Base HP set to ${amount}`, 'log');
+            } else {
+                logToConsole('Usage: hp [amount]', 'error');
+            }
+        } else if(command === 'wave'){
+            const num = parseInt(args[1]);
+            if(!isNaN(num)){
+                waveNumber = num;
+                ui.waveNum.textContent = waveNumber;
+                logToConsole(`Wave set to ${num}`, 'log');
+            } else {
+                logToConsole('Usage: wave [number]', 'error');
+            }
+        } else if(command === 'kill'){
+            enemies = [];
+            logToConsole(`Killed all ${enemies.length} enemies`, 'log');
+        } else if(command === 'clear'){
+            towers = [];
+            enemies = [];
+            logToConsole('Cleared all towers and enemies', 'log');
+        } else if(command === 'stats'){
+            logToConsole(`Money: $${Math.floor(money)}`, 'log');
+            logToConsole(`Base HP: ${baseHP}`, 'log');
+            logToConsole(`Wave: ${waveNumber}`, 'log');
+            logToConsole(`Towers: ${towers.length}`, 'log');
+            logToConsole(`Enemies: ${enemies.length}`, 'log');
+            logToConsole(`Global Dmg Mult: ${globalDmgMult.toFixed(2)}x`, 'log');
+            logToConsole(`Global Speed Mult: ${globalSpeedMult.toFixed(2)}x`, 'log');
+            logToConsole(`Global Range Mult: ${globalRangeMult.toFixed(2)}x`, 'log');
+        } else if(command === 'tower'){
+            const type = args[1] || 'scout';
+            if(TOWER_TYPES[type]){
+                const x = 100 + Math.random() * 500;
+                const y = 100 + Math.random() * 500;
+                towers.push({
+                    id: Date.now() + Math.random(),
+                    type, x, y,
+                    range: Math.round(TOWER_TYPES[type].range * globalRangeMult),
+                    dmg: Math.round(TOWER_TYPES[type].dmg * globalDmgMult),
+                    rate: TOWER_TYPES[type].rate / globalSpeedMult,
+                    cooldown: 0,
+                    level: 1,
+                    color: TOWER_TYPES[type].color,
+                    splash: TOWER_TYPES[type].splash || false,
+                    splashRadius: TOWER_TYPES[type].splashRadius || 0,
+                    pierce: TOWER_TYPES[type].pierce || false,
+                    stunned: false,
+                    stunTimer: 0
+                });
+                logToConsole(`Added ${type} tower at (${Math.round(x)}, ${Math.round(y)})`, 'log');
+            } else {
+                logToConsole(`Unknown tower type: ${type}`, 'error');
+            }
+        } else if(command === 'upgrade'){
+            if(!selectedTower){
+                logToConsole('No tower selected', 'error');
+            } else {
+                const level = parseInt(args[1]) || selectedTower.level + 1;
+                selectedTower.level = level;
+                selectedTower.dmg = Math.round(selectedTower.dmg * Math.pow(1.5, level - 1));
+                selectedTower.range = Math.round(selectedTower.range * Math.pow(1.15, level - 1));
+                logToConsole(`Tower upgraded to level ${level}`, 'log');
+                refreshUpgradePanel();
+            }
+        } else if(command === 'close'){
+            devConsoleOpen = false;
+            devConsoleOverlay.style.display = 'none';
+            consoleInputField.value = '';
+        } else {
+            logToConsole(`Unknown command: ${command}. Type 'help' for list`, 'error');
+        }
+    } catch(e){
+        logToConsole(`Error: ${e.message}`, 'error');
+    }
+}
+
+consoleInputField.addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter'){
+        const cmd = consoleInputField.value;
+        if(cmd.trim()){
+            executeConsoleCommand(cmd);
+        }
+        consoleInputField.value = '';
+    }
+});
+
+devConsoleOverlay.addEventListener('click', (e)=>{
+    if(e.target === devConsoleOverlay){
+        devConsoleOpen = false;
+        devConsoleOverlay.style.display = 'none';
+        consoleInputField.value = '';
+    }
+});
+const ui = {
+    money: document.getElementById('money'),
+    base: document.getElementById('base'),
+    placementHint: document.getElementById('placementHint'),
+    waveNum: document.getElementById('waveNum'),
+    startWaveBtn: document.getElementById('startWaveBtn'),
+    fastForwardBtn: document.getElementById('fastForwardBtn'),
+    upgradePanel: document.getElementById('upgradePanel'),
+    towerStats: document.getElementById('towerStats'),
+    upgradeBtn: document.getElementById('upgradeBtn'),
+    sellBtn: document.getElementById('sellBtn'),
+    storeBtn: document.getElementById('storeBtn'),
+    upgradeCost: document.getElementById('upgradeCost'),
+    inventoryPanel: document.getElementById('inventoryPanel'),
+    invCount: document.getElementById('invCount'),
+    tutorialOverlay: document.getElementById('tutorialOverlay'),
+    tutorialBtn: document.getElementById('tutorialBtn'),
+    closeTutorialBtn: document.getElementById('closeTutorialBtn')
+};
+
+// Panel toggle
+let panelCollapsed = false;
+const toggleBtn = document.getElementById('toggleBtn');
+const uiDiv = document.getElementById('ui');
+toggleBtn.addEventListener('click', ()=>{
+    panelCollapsed = !panelCollapsed;
+    if(panelCollapsed){
+        uiDiv.classList.add('collapsed');
+        toggleBtn.textContent = '▶';
+    } else {
+        uiDiv.classList.remove('collapsed');
+        toggleBtn.textContent = '◀';
+    }
+});
+
+function setMoney(v){money=v;ui.money.textContent = '$' + Math.max(0,Math.floor(money));}
+function setBase(v){baseHP = v; ui.base.textContent = 'HP: ' + Math.max(0,Math.floor(baseHP));}
+
+// Path
+const path = [
+    {x:40,y:320},
+    {x:240,y:320},
+    {x:240,y:120},
+    {x:560,y:120},
+    {x:560,y:440},
+    {x:920,y:440}
+];
+const PATH_WIDTH = 72;
+
+function distToSegment(px,py,ax,ay,bx,by){
+    const vx = bx-ax, vy = by-ay, wx = px-ax, wy = py-ay;
+    const c = (vx*wx+vy*wy)/(vx*vx+vy*vy);
+    if(c<=0) return Math.hypot(px-ax,py-ay);
+    if(c>=1) return Math.hypot(px-bx,py-by);
+    const projx = ax + c*vx, projy = ay + c*vy;
+    return Math.hypot(px-projx,py-projy);
+}
+
+function isOnPath(x,y){
+    for(let i=0;i<path.length-1;i++){
+        if(distToSegment(x,y,path[i].x,path[i].y,path[i+1].x,path[i+1].y) < PATH_WIDTH/2) return true;
+    }
+    return false;
+}
+
+// Game objects
+let towers = [];
+let enemies = [];
+let spawnQueue = [];
+let spawning = false;
+let selectedTower = null;
+let isBossWave = false;
+let bossAlertTimer = 0;
+let isTyrantWave = false;
+let tyrantAlertTimer = 0;
+let isGameCompletion = false;
+let unlocked10Wave = false;
+let critChanceMultiplier = 1;
+let bounceShotMultiplier = 1;
+let enemyWeaknessMultiplier = 1;
+let particles = [];
+let wave10Timeout = null;
+let wave10PulseTimeout = null;
+
+const TOWER_TYPES = {
+    scout: {name:'Scout', cost:300, range:80, dmg:4, rate:0.4, color:'#00ccff', upgradeCost:80},
+    ranger:{name:'Ranger', cost:3000, range:140, dmg:12, rate:0.9, color:'#00ff88', upgradeCost:180},
+    cannon:{name:'Cannon', cost:1000, range:100, dmg:18, rate:1.6, color:'#ffaa44', splash:true, splashRadius:40, upgradeCost:140},
+    laser:{name:'Laser', cost:20000, range:120, dmg:10, rate:0.7, color:'#ff88ff', pierce:true, upgradeCost:2500},
+    inferno:{name:'Inferno', cost:35000, range:110, dmg:25, rate:1.2, color:'#ff4400', splash:true, splashRadius:60, upgradeCost:2500, unlockWave:10},
+    tesla:{name:'Tesla', cost:45000, range:150, dmg:8, rate:0.5, color:'#00ffff', pierce:true, upgradeCost:2500, unlockWave:10}
+};
+
+const SHOP_UPGRADES = {
+    dmgBoost: {name:'+15% Damage', cost:350, applied:false},
+    speedBoost: {name:'+8% Attack Speed', cost:300, applied:false},
+    rangeBoost: {name:'+12% Range', cost:400, applied:false},
+    critChance: {name:'Crit Chance', cost:600, applied:false, unlockWave:10},
+    bounceShot: {name:'Bounce Shot', cost:550, applied:false, unlockWave:10},
+    weakness: {name:'Enemy Weakness', cost:700, applied:false, unlockWave:10}
+};
+
+// Home screen event
+startGameBtn.addEventListener('click', ()=>{
+    homeScreen.style.display = 'none';
+    gameDiv.classList.add('show');
+    ui.tutorialOverlay.style.display = 'flex';
+    setTimeout(()=>{ 
+        ui.tutorialOverlay.style.display = 'flex'; 
+    }, 300);
+});
+
+// Tutorial
+ui.tutorialBtn.addEventListener('click', ()=>{
+    ui.tutorialOverlay.style.display = 'flex';
+});
+
+ui.closeTutorialBtn.addEventListener('click', ()=>{
+    ui.tutorialOverlay.style.display = 'none';
+});
+
+ui.tutorialOverlay.addEventListener('click', (e)=>{
+    if(e.target === ui.tutorialOverlay) ui.tutorialOverlay.style.display = 'none';
+});
+
+// Game completion restart button
+document.getElementById('restartBtn').addEventListener('click', ()=>{
+    location.reload();
+});
+
+// Defeat restart button
+const defeatRestartBtn = document.getElementById('defeatRestartBtn');
+if(defeatRestartBtn){
+    defeatRestartBtn.addEventListener('click', ()=>{
+        location.reload();
+    });
+}
+
+// Tower placement
+document.querySelectorAll('.tower-btn[data-type]').forEach(el=>{
+    el.addEventListener('click', ()=> {
+        // Remove active class from all tower buttons
+        document.querySelectorAll('.tower-btn[data-type]').forEach(b => b.classList.remove('active'));
+        // Add active class to clicked button
+        el.classList.add('active');
+        
+        const t = el.getAttribute('data-type');
+        isPlacing = t;
+        ui.placementHint.textContent = 'Placing: ' + TOWER_TYPES[t].name + ' - Click map to place or Esc to cancel';
+    });
+});
+
+// Shop upgrades
+document.querySelectorAll('.tower-btn[data-upgrade]').forEach(el=>{
+    el.addEventListener('click', ()=> {
+        const upgrade = el.getAttribute('data-upgrade');
+        const def = SHOP_UPGRADES[upgrade];
+        if(def.applied){ alert('Already purchased!'); return; }
+        if(money < def.cost){ alert('Not enough money'); return; }
+        setMoney(money - def.cost);
+        def.applied = true;
+        el.classList.add('consumed');
+        
+        if(upgrade === 'dmgBoost'){
+            globalDmgMult *= 1.15;
+            for(const t of towers) t.dmg = Math.round(t.dmg * 1.15);
+        } else if(upgrade === 'speedBoost'){
+            globalSpeedMult *= 1.08;
+            for(const t of towers) t.rate = t.rate / 1.08;
+        } else if(upgrade === 'rangeBoost'){
+            globalRangeMult *= 1.12;
+            for(const t of towers) t.range = Math.round(t.range * 1.12);
+        } else if(upgrade === 'critChance'){
+            critChanceMultiplier = 1.25;
+        } else if(upgrade === 'bounceShot'){
+            bounceShotMultiplier = 1.4;
+        } else if(upgrade === 'weakness'){
+            enemyWeaknessMultiplier = 0.8;
+        }
+        
+        if(inventory.upgrades.length < INV_MAX_UPGRADES){
+            inventory.upgrades.push(upgrade);
+        }
+        updateInventoryUI();
+    });
+});
+
+function getMousePos(e) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return {
+        x: (e.clientX - rect.left) * scaleX,
+        y: (e.clientY - rect.top) * scaleY
+    };
+}
+
+canvas.addEventListener('mousemove', e=>{
+    placePreview = getMousePos(e);
+});
+
+canvas.addEventListener('click', e=>{
+    const {x, y} = getMousePos(e);
+
+    if(isPlacing){
+        const type = isPlacing;
+        const tdef = TOWER_TYPES[type];
+        if(isOnPath(x,y)){ ui.placementHint.textContent = 'Cannot place on path'; return; }
+        if(towers.some(t=>Math.hypot(t.x-x,t.y-y) < 36)){ ui.placementHint.textContent = 'Too close to other tower'; return; }
+        if(money < tdef.cost){ ui.placementHint.textContent = 'Not enough money'; return; }
+        
+        towers.push({
+            id:Date.now()+Math.random(), 
+            type, x,y, 
+            range:Math.round(tdef.range * globalRangeMult), 
+            dmg:Math.round(tdef.dmg * globalDmgMult), 
+            rate:tdef.rate / globalSpeedMult, 
+            cooldown:0, 
+            level:1, 
+            color:tdef.color, 
+            splash:tdef.splash||false, 
+            splashRadius:tdef.splashRadius||0,
+            pierce:tdef.pierce||false
+        });
+        setMoney(money - tdef.cost);
+        isPlacing = null; placePreview = null; ui.placementHint.textContent = 'Select a tower to place';
+        return;
+    }
+
+    const found = towers.find(t=>Math.hypot(t.x-x,t.y-y) < 20);
+    if(found){
+        selectedTower = found;
+        ui.upgradePanel.style.display = 'flex';
+        refreshUpgradePanel();
+    } else {
+        selectedTower = null;
+        ui.upgradePanel.style.display = 'none';
+    }
+});
+
+window.addEventListener('keydown', e=>{
+    if(e.key === 'Escape'){ isPlacing = null; placePreview = null; ui.placementHint.textContent = 'Select a tower to place'; }
+    
+    // Dev console trigger: type 'unbound' while upgrade panel is open
+    if(ui.upgradePanel.style.display === 'flex' && selectedTower){
+        unboundSequence += e.key.toLowerCase();
+        // Keep only last 7 characters to match 'unbound'
+        if(unboundSequence.length > 7) unboundSequence = unboundSequence.slice(-7);
+        
+        if(unboundSequence.endsWith('unbound')){
+            unboundSequence = '';
+            devConsoleOpen = true;
+            devConsoleOverlay.style.display = 'flex';
+            consoleInputField.focus();
+            logToConsole('Dev Console Opened', 'warn');
+            logToConsole('Type "help" for commands', 'warn');
+        }
+    }
+});
+
+ui.sellBtn.addEventListener('click', ()=>{
+    if(!selectedTower) return;
+    setMoney(money + Math.floor(getTowerBaseCost(selectedTower.type) * 0.6));
+    towers = towers.filter(t=>t !== selectedTower);
+    selectedTower = null;
+    ui.upgradePanel.style.display = 'none';
+});
+
+ui.storeBtn.addEventListener('click', ()=>{
+    if(!selectedTower) return;
+    if(inventory.towers.length >= INV_MAX_TOWERS){ alert('Vault is full!'); return; }
+    inventory.towers.push({
+        type: selectedTower.type,
+        level: selectedTower.level,
+        dmg: selectedTower.dmg,
+        range: selectedTower.range,
+        rate: selectedTower.rate
+    });
+    towers = towers.filter(t=>t !== selectedTower);
+    selectedTower = null;
+    ui.upgradePanel.style.display = 'none';
+    updateInventoryUI();
+});
+
+ui.upgradeBtn.addEventListener('click', ()=>{
+    if(!selectedTower) return;
+    const cost = getUpgradeCost(selectedTower);
+    if(money < cost){ alert('Not enough money'); return; }
+    setMoney(money - cost);
+    selectedTower.level++;
+    selectedTower.dmg = Math.round(selectedTower.dmg * 1.5);
+    selectedTower.range = Math.round(selectedTower.range * 1.15);
+    selectedTower.rate = Math.max(0.15, selectedTower.rate * 0.85);
+    refreshUpgradePanel();
+});
+
+function refreshUpgradePanel(){
+    if(!selectedTower) return;
+    ui.towerStats.innerHTML = `
+        ${TOWER_TYPES[selectedTower.type].name} (Lvl ${selectedTower.level})<br>
+        Damage: ${selectedTower.dmg}<br>
+        Range: ${selectedTower.range}<br>
+        Fire Rate: ${(1/selectedTower.rate).toFixed(2)} shots/sec<br>
+        ${selectedTower.splash?'Splash: Yes<br>':''}
+        ${selectedTower.pierce?'Pierce: Yes<br>':''}
+    `;
+    ui.upgradeCost.textContent = 'Upgrade Cost: $' + getUpgradeCost(selectedTower);
+}
+
+function getTowerBaseCost(type){ return TOWER_TYPES[type].cost; }
+function getUpgradeCost(t){ return Math.round(TOWER_TYPES[t.type].upgradeCost * t.level * 1.5); }
+
+function updateInventoryUI(){
+    ui.invCount.textContent = `(${inventory.towers.length}/${INV_MAX_TOWERS}, ${inventory.upgrades.length}/${INV_MAX_UPGRADES})`;
+    
+    if(inventory.towers.length === 0 && inventory.upgrades.length === 0){
+        ui.inventoryPanel.innerHTML = '<div class="small" style="color:#666">Empty</div>';
+        return;
+    }
+    
+    ui.inventoryPanel.innerHTML = '';
+    
+    for(let i = 0; i < inventory.towers.length; i++){
+        const t = inventory.towers[i];
+        const btn = document.createElement('div');
+        btn.className = 'inventory-item';
+        btn.innerHTML = `${TOWER_TYPES[t.type].name} (Lvl ${t.level}) <span style="color:#666">Dmg:${t.dmg}</span>`;
+        btn.addEventListener('click', ()=>{
+            towers.push({
+                id:Date.now()+Math.random(),
+                type: t.type,
+                x: 100 + Math.random()*100,
+                y: 100 + Math.random()*100,
+                range: t.range,
+                dmg: t.dmg,
+                rate: t.rate,
+                cooldown: 0,
+                level: t.level,
+                color: TOWER_TYPES[t.type].color,
+                splash: TOWER_TYPES[t.type].splash || false,
+                splashRadius: TOWER_TYPES[t.type].splashRadius || 0,
+                pierce: TOWER_TYPES[t.type].pierce || false
+                ,stunned:false,stunTimer:0
+            });
+            inventory.towers.splice(i, 1);
+            updateInventoryUI();
+        });
+        ui.inventoryPanel.appendChild(btn);
+    }
+    
+    for(let i = 0; i < inventory.upgrades.length; i++){
+        const upgName = inventory.upgrades[i];
+        const upgDef = SHOP_UPGRADES[upgName];
+        const btn = document.createElement('div');
+        btn.className = 'inventory-item';
+        btn.innerHTML = `${upgDef.name}`;
+        ui.inventoryPanel.appendChild(btn);
+    }
+}
+
+// Waves
+ui.startWaveBtn.addEventListener('click', ()=>{
+    if(spawning) return;
+    waveNumber++;
+    ui.waveNum.textContent = waveNumber;
+    if(waveNumber === 10 && !unlocked10Wave){
+        unlockWave10Content();
+    }
+    spawnWave(waveNumber);
+});
+
+ui.fastForwardBtn.addEventListener('click', ()=>{
+    gameSpeed = gameSpeed === 1 ? 2 : 1;
+    ui.fastForwardBtn.textContent = gameSpeed === 1 ? 'x2 Speed' : 'Normal';
+});
+
+function spawnWave(n){
+    spawning = true;
+    
+    // Special Tyrant wave at wave 50
+    if(n === 50){
+        isGameCompletion = false;
+        isTyrantWave = true;
+        tyrantAlertTimer = 3;
+        spawnQueue.push({type:'tyrant', delay:500});
+    } else {
+        isTyrantWave = false;
+        isBossWave = (n % 10 === 0);
+        
+        if(isBossWave){
+            bossAlertTimer = 2;
+            spawnQueue.push({type:'boss', delay:300});
+            // 5 additional normal enemies
+            for(let i=0;i<5;i++){
+                spawnQueue.push({type:'normal', delay:800 + i*300});
+            }
+        } else {
+            const count = 10 + n*4;
+            const brutChance = Math.min(0.5, 0.15 + n*0.08);
+            const speedyChance = Math.min(0.7, 0.4 + n*0.12);
+            
+            for(let i=0;i<count;i++){
+                const r = Math.random();
+                let type = 'normal';
+                if(r < brutChance) type = 'brute';
+                else if(r < brutChance + speedyChance) type = 'speedy';
+                spawnQueue.push({type, delay:i*400});
+            }
+        }
+    }
+}
+
+function createEnemy(def){
+    def = def || {};
+    const normalHp = Math.round((20 + waveNumber*5) * enemyWeaknessMultiplier);
+    const speedyHp = Math.round((10 + waveNumber*3) * enemyWeaknessMultiplier);
+    const bruteHp = Math.round((50 + waveNumber*12) * enemyWeaknessMultiplier);
+    const bossHp = Math.round((300 + waveNumber*50) * enemyWeaknessMultiplier);
+    // Balance Tyrant HP by global damage multiplier and number of towers on the field
+    // More towers or higher global damage should reduce Tyrant HP to keep fights fair
+    const baseTyrantHp = (1000 + waveNumber*100) * enemyWeaknessMultiplier;
+    const towerCount = Math.max(1, towers.length);
+    // balancingFactor increases with global damage multiplier and with number of towers
+    const balancingFactor = Math.max(0.1, globalDmgMult * (1 + towerCount * 0.08));
+    const tyrantHp = Math.max(500, Math.round(baseTyrantHp / balancingFactor));
+    
+    const sx = (typeof def.x === 'number') ? def.x : path[0].x;
+    const sy = (typeof def.y === 'number') ? def.y : path[0].y;
+    if(def.type === 'normal') return {x:sx,y:sy,type:'normal',speed:75, hp: normalHp, maxHp:normalHp, waypoint:1, color:'#00ff88'};
+    if(def.type === 'speedy') return {x:sx,y:sy,type:'speedy',speed:150, hp: speedyHp, maxHp:speedyHp, waypoint:1, color:'#ff88ff'};
+    if(def.type === 'brute') return {x:sx,y:sy,type:'brute',speed:40, hp: bruteHp, maxHp:bruteHp, waypoint:1, color:'#ff5555'};
+    if(def.type === 'boss') return {x:sx,y:sy,type:'boss',speed:35, hp: bossHp, maxHp:bossHp, waypoint:1, color:'#ff0000', isBoss:true};
+    if(def.type === 'tyrant') return {x:sx,y:sy,type:'tyrant',speed:30, hp: tyrantHp, maxHp:tyrantHp, waypoint:1, color:'#ffff00', isTyrant:true, summonCooldown:0, summonInterval:3, stunned:false, stunTimer:0};
+}
+
+// Game loop
+let last = performance.now();
+function loop(now){
+    const dt = Math.min(100, now - last) / 1000 * gameSpeed;
+    last = now;
+    update(dt);
+    draw();
+    requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+function createExplosion(x, y, enemyType){
+    // Determine particle count and color based on enemy type
+    let particleCount = 8;
+    let color = '#00ff88';
+    let size = 3;
+    
+    if(enemyType === 'speedy'){
+        particleCount = 6;
+        color = '#ff88ff';
+        size = 2;
+    } else if(enemyType === 'brute'){
+        particleCount = 12;
+        color = '#ff3333';
+        size = 4;
+    } else if(enemyType === 'boss'){
+        particleCount = 20;
+        color = '#ff0000';
+        size = 5;
+    } else if(enemyType === 'tyrant'){
+        particleCount = 40;
+        color = '#ffff00';
+        size = 6;
+    }
+    
+    // Create particles in all directions
+    for(let i = 0; i < particleCount; i++){
+        const angle = (Math.PI * 2 * i) / particleCount + (Math.random() - 0.5) * 0.5;
+        const speed = 150 + Math.random() * 150;
+        const vx = Math.cos(angle) * speed;
+        const vy = Math.sin(angle) * speed;
+        
+        particles.push({
+            x: x,
+            y: y,
+            vx: vx,
+            vy: vy,
+            lifetime: 0.8 + Math.random() * 0.4,
+            maxLifetime: 0.8 + Math.random() * 0.4,
+            color: color,
+            size: size + (Math.random() - 0.5) * 2
+        });
+    }
+}
+
+function update(dt){
+    // Update particles
+    for(let i = particles.length - 1; i >= 0; i--){
+        const p = particles[i];
+        p.lifetime -= dt;
+        
+        if(p.lifetime <= 0){
+            particles.splice(i, 1);
+            continue;
+        }
+        
+        // Apply gravity
+        p.vy += dt * 200;
+        
+        // Update position
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+    }
+    
+    // Update boss alert timer
+    if(bossAlertTimer > 0){
+        bossAlertTimer -= dt;
+        const bossAlertOverlay = document.getElementById('bossAlertOverlay');
+        if(bossAlertTimer > 0){
+            bossAlertOverlay.style.display = 'flex';
+        } else {
+            bossAlertOverlay.style.display = 'none';
+        }
+    }
+    
+    // Update Tyrant alert timer
+    if(tyrantAlertTimer > 0){
+        tyrantAlertTimer -= dt;
+        const tyrantAlertOverlay = document.getElementById('tyrantAlertOverlay');
+        if(tyrantAlertTimer > 0){
+            tyrantAlertOverlay.style.display = 'flex';
+        } else {
+            tyrantAlertOverlay.style.display = 'none';
+        }
+    }
+
+    if(spawnQueue.length){
+        for(let i=spawnQueue.length-1;i>=0;i--){
+            spawnQueue[i].delay -= dt*1000;
+            if(spawnQueue[i].delay <= 0){
+                enemies.push(createEnemy(spawnQueue[i]));
+                spawnQueue.splice(i,1);
+            }
+        }
+    } else {
+        spawning = false;
+    }
+
+    for(let i=enemies.length-1;i>=0;i--){
+        const e = enemies[i];
+        
+        // Update Tyrant stun timer
+        if(e.isTyrant && e.stunTimer > 0){
+            e.stunTimer -= dt;
+            if(e.stunTimer <= 0) e.stunned = false;
+        }
+        
+        // Tyrant summon logic
+        if(e.isTyrant){
+            e.summonCooldown -= dt;
+            if(e.summonCooldown <= 0){
+                e.summonCooldown = e.summonInterval;
+                // Summon 2 random enemies
+                for(let j=0;j<2;j++){
+                    const rnd = Math.random();
+                    let summonType = 'normal';
+                    if(rnd < 0.3) summonType = 'brute';
+                    else if(rnd < 0.6) summonType = 'speedy';
+                    // Spawn at or near the Tyrant's current position
+                    const sx = e.x + (Math.random() - 0.5) * 40;
+                    const sy = e.y + (Math.random() - 0.5) * 40;
+                    enemies.push(createEnemy({type: summonType, x: sx, y: sy}));
+                    // Apply stun to nearby towers as part of Tyrant's ability
+                    const stunRadius = 120;
+                    for(const t of towers){
+                        const d = Math.hypot(t.x - e.x, t.y - e.y);
+                        if(d <= stunRadius){
+                            t.stunned = true;
+                            t.stunTimer = 3; // seconds
+                            // small visual particle burst at tower
+                            createExplosion(t.x, t.y, 'speedy');
+                        }
+                    }
+                }
+            }
+        }
+        
+        if(e.waypoint >= path.length){
+            // Enemy reached the end - deals damage equal to its remaining HP
+            const damage = Math.ceil(e.hp);
+            setBase(baseHP - damage);
+            enemies.splice(i,1);
+            
+            if(baseHP <= 0){
+                gameOver();
+                return;
+            }
+            continue;
+        }
+        
+        const target = path[e.waypoint];
+        const dx = target.x - e.x, dy = target.y - e.y;
+        const dist = Math.hypot(dx,dy);
+        if(dist < 1){
+            e.waypoint++;
+            continue;
+        }
+        
+        // Move normally unless stunned
+        const moveSpeed = e.stunned ? 0 : e.speed;
+        const move = Math.min(dist, moveSpeed * dt);
+        e.x += dx/dist * move;
+        e.y += dy/dist * move;
+    }
+
+        for(const t of towers){
+        // Update tower stun timers
+        if(t.stunTimer && t.stunTimer > 0){
+            t.stunTimer -= dt;
+            if(t.stunTimer <= 0){ t.stunTimer = 0; t.stunned = false; }
+        }
+
+        t.cooldown -= dt;
+        if(t.cooldown <= 0){
+            let target = null;
+            let bestDist = 1e9;
+            for(const e of enemies){
+                const d = Math.hypot(e.x - t.x, e.y - t.y);
+                if(d <= t.range && d < bestDist){
+                    bestDist = d; target = e;
+                }
+            }
+            if(target){
+                // Skip firing when stunned
+                if(t.stunned) continue;
+                t.cooldown = t.rate;
+                if(t.pierce){
+                    for(const e of enemies){
+                        if(Math.hypot(e.x - target.x, e.y - target.y) <= 80){
+                            e.hp -= t.dmg;
+                            setMoney(money + t.dmg);
+                            // Stun Tyrant if hit by pierce tower
+                            if(e.isTyrant && Math.random() < 0.3){
+                                e.stunned = true;
+                                e.stunTimer = 3;
+                            }
+                        }
+                    }
+                } else if(t.splash){
+                    for(const e of enemies){
+                        if(Math.hypot(e.x - target.x, e.y - target.y) <= t.splashRadius){
+                            e.hp -= t.dmg;
+                            setMoney(money + t.dmg);
+                            // Stun Tyrant if hit by splash tower
+                            if(e.isTyrant && Math.random() < 0.3){
+                                e.stunned = true;
+                                e.stunTimer = 3;
+                            }
+                        }
+                    }
+                } else {
+                    target.hp -= t.dmg;
+                    setMoney(money + t.dmg);
+                    // Stun Tyrant on single-target hit
+                    if(target.isTyrant && Math.random() < 0.2){
+                        target.stunned = true;
+                        target.stunTimer = 3;
+                    }
+                }
+            }
+        }
+    }
+
+    for(let i=enemies.length-1;i>=0;i--){
+        if(enemies[i].hp <= 0){
+            const reward = enemies[i].isTyrant ? 5000 : (enemies[i].isBoss ? 500 : Math.floor(enemies[i].maxHp * 0.25));
+            setMoney(money + reward);
+            
+            // Create explosion effect
+            createExplosion(enemies[i].x, enemies[i].y, enemies[i].type);
+            
+            // Check if Tyrant was defeated
+            if(enemies[i].isTyrant){
+                isGameCompletion = true;
+                showGameCompletion();
+            }
+            
+            enemies.splice(i,1);
+        }
+    }
+}
+
+function draw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    drawPath();
+    
+    for(const t of towers){
+        ctx.beginPath();
+        ctx.fillStyle = 'rgba(0,255,136,0.05)';
+        ctx.arc(t.x,t.y,t.range,0,Math.PI*2); 
+        ctx.fill();
+        ctx.closePath();
+
+        drawTower(t);
+        
+        if(selectedTower === t){
+            ctx.strokeStyle = '#ffff00'; 
+            ctx.lineWidth = 3;
+            ctx.beginPath(); 
+            ctx.arc(t.x,t.y,18,0,Math.PI*2); 
+            ctx.stroke(); 
+            ctx.lineWidth = 1;
+        }
+        // Draw stun overlay for towers
+        if(t.stunned){
+            ctx.save();
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgba(255,100,100,0.9)';
+            ctx.lineWidth = 3;
+            ctx.arc(t.x, t.y, 22, 0, Math.PI*2);
+            ctx.stroke();
+            ctx.closePath();
+            // Timer text
+            ctx.fillStyle = '#ffdddd';
+            ctx.font = 'bold 12px Arial';
+            const secs = Math.max(0, Math.ceil(t.stunTimer));
+            ctx.fillText(secs + 's', t.x - 10, t.y - 26);
+            ctx.restore();
+        }
+    }
+
+    for(const e of enemies){
+        drawEnemy(e);
+        
+        // Adjust health bar size for Tyrant
+        const hpBarWidth = e.isTyrant ? 60 : 32;
+        const hpBarX = e.x - hpBarWidth/2;
+        const hpBarY = e.y - 28;
+        
+        ctx.fillStyle = '#333'; 
+        ctx.fillRect(hpBarX, hpBarY, hpBarWidth, 6);
+        ctx.fillStyle = e.isTyrant ? '#ffff00' : (e.isBoss ? '#ff0000' : '#00ff88'); 
+        ctx.fillRect(hpBarX, hpBarY, hpBarWidth*(Math.max(0,e.hp)/e.maxHp), 6);
+        ctx.strokeStyle = '#000'; 
+        ctx.lineWidth = 1;
+        ctx.strokeRect(hpBarX, hpBarY, hpBarWidth, 6);
+    }
+
+    // Draw Tyrant top-screen health bar if present
+    const tyr = enemies.find(en => en.isTyrant);
+    if(tyr){
+        const barW = Math.min(600, canvas.width * 0.6);
+        const bx = (canvas.width - barW) / 2;
+        const by = 18;
+        ctx.save();
+        ctx.fillStyle = 'rgba(0,0,0,0.55)';
+        ctx.fillRect(bx-6, by-6, barW+12, 36);
+        ctx.fillStyle = '#333';
+        ctx.fillRect(bx, by, barW, 20);
+        ctx.fillStyle = '#ffff00';
+        const pct = Math.max(0, tyr.hp / tyr.maxHp);
+        ctx.fillRect(bx, by, barW * pct, 20);
+        ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.lineWidth = 1;
+        ctx.strokeRect(bx, by, barW, 20);
+        ctx.fillStyle = '#fff'; ctx.font = 'bold 14px Arial';
+        const txt = 'TYRANT: ' + Math.floor(tyr.hp) + ' / ' + Math.floor(tyr.maxHp);
+        ctx.fillText(txt, canvas.width/2 - ctx.measureText(txt).width/2, by + 16);
+        ctx.restore();
+    }
+
+    // Render particles
+    for(const p of particles){
+        const alpha = p.lifetime / p.maxLifetime;
+        // Convert hex color to rgba
+        const hex = p.color.replace('#', '');
+        const r = parseInt(hex.substring(0, 2), 16);
+        const g = parseInt(hex.substring(2, 4), 16);
+        const b = parseInt(hex.substring(4, 6), 16);
+        ctx.fillStyle = `rgba(${r},${g},${b},${alpha})`;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+        ctx.fill();
+        ctx.closePath();
+    }
+
+    if(placePreview && isPlacing){
+        const x = placePreview.x, y = placePreview.y;
+        ctx.globalAlpha = 0.9;
+        const ok = !isOnPath(x,y) && !towers.some(t=>Math.hypot(t.x-x,t.y-y) < 36) && money >= TOWER_TYPES[isPlacing].cost;
+        ctx.fillStyle = ok ? 'rgba(0,255,136,0.3)' : 'rgba(255,100,100,0.2)';
+        ctx.beginPath(); 
+        ctx.arc(x,y,20,0,Math.PI*2); 
+        ctx.fill(); 
+        ctx.closePath();
+        ctx.globalAlpha = 1;
+        
+        ctx.fillStyle = TOWER_TYPES[isPlacing].color;
+        ctx.fillRect(x-12,y-12,24,24);
+    }
+
+    ctx.fillStyle = '#00ff88';
+    ctx.font = 'bold 14px Arial';
+    ctx.fillText('Enemies: ' + enemies.length, 10, 20);
+    ctx.fillText('Towers: ' + towers.length, 10, 38);
+    ctx.fillText('Wave: ' + waveNumber, 10, 56);
+}
+
+function drawPath(){
+    ctx.strokeStyle = '#00ff88';
+    ctx.fillStyle = 'rgba(0,255,136,0.1)';
+    ctx.beginPath();
+    for(let i=0;i<path.length-1;i++){
+        const a = path[i], b = path[i+1];
+        ctx.lineWidth = PATH_WIDTH;
+        ctx.lineCap = 'round';
+        ctx.moveTo(a.x,a.y); 
+        ctx.lineTo(b.x,b.y);
+    }
+    ctx.stroke();
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'butt';
+    
+    ctx.beginPath(); 
+    ctx.strokeStyle = '#00ccff'; 
+    ctx.moveTo(path[0].x,path[0].y);
+    for(let i=1;i<path.length;i++) ctx.lineTo(path[i].x,path[i].y);
+    ctx.stroke();
+}
+
+function unlockWave10Content(){
+    unlocked10Wave = true;
+    
+    // Show new towers
+    document.getElementById('tower-inferno').style.display = 'flex';
+    document.getElementById('tower-tesla').style.display = 'flex';
+    
+    // Show new upgrades
+    document.getElementById('upgrade-crit').style.display = 'flex';
+    document.getElementById('upgrade-bounce').style.display = 'flex';
+    document.getElementById('upgrade-weakness').style.display = 'flex';
+    
+    // Increase inventory space
+    INV_MAX_TOWERS = 12;
+    INV_MAX_UPGRADES = 5;
+    updateInventoryUI();
+    
+    // Show notification (optional)
+    showWave10Unlock();
+}
+
+function gameOver(){
+    showGameDefeat();
+}
+
+function showGameDefeat(){
+    const overlay = document.getElementById('gameDefeatOverlay');
+    const defeatWaveSpan = document.getElementById('defeatWave');
+    const defeatMoneySpan = document.getElementById('defeatMoney');
+    const defeatTowersSpan = document.getElementById('defeatTowers');
+    const defeatKillsSpan = document.getElementById('defeatKills');
+    
+    defeatWaveSpan.textContent = waveNumber;
+    defeatMoneySpan.textContent = '$' + Math.floor(money);
+    defeatTowersSpan.textContent = towers.length;
+    
+    // Count total enemies killed
+    let totalKills = 0;
+    for(let w = 1; w < waveNumber; w++){
+        totalKills += 10 + w*4;
+    }
+    defeatKillsSpan.textContent = totalKills;
+    
+    overlay.style.display = 'flex';
+    
+    // Disable game interactions
+    ui.startWaveBtn.disabled = true;
+    ui.fastForwardBtn.disabled = true;
+}
+
+function showWave10Unlock(){
+    const overlay = document.getElementById('wave10Overlay');
+    if(!overlay) return;
+    // Clear any existing timeout
+    if(wave10Timeout) { clearTimeout(wave10Timeout); wave10Timeout = null; }
+    // Ensure previous pulse timer cleared
+    if(wave10PulseTimeout){ clearTimeout(wave10PulseTimeout); wave10PulseTimeout = null; }
+
+    overlay.style.display = 'flex';
+    overlay.classList.remove('waveFadeOut');
+    // Optionally expand inventory/UI immediately
+    unlocked10Wave = true;
+    INV_MAX_TOWERS = 12;
+    INV_MAX_UPGRADES = 5;
+    updateInventoryUI();
+    // Disable interactions to draw attention
+    ui.startWaveBtn.disabled = true;
+    ui.fastForwardBtn.disabled = true;
+
+    // Pulse-highlight newly unlocked UI items so players notice
+    const highlightIds = ['tower-inferno','tower-tesla','upgrade-crit','upgrade-bounce','upgrade-weakness'];
+    highlightIds.forEach(id=>{
+        const el = document.getElementById(id);
+        if(el){ el.classList.add('pulseHighlight'); el.style.position = el.style.position || 'relative'; }
+    });
+
+    // Auto-close overlay after 5 seconds by calling shared close handler
+    wave10Timeout = setTimeout(()=>{ closeWave10Overlay(); wave10Timeout = null; }, 5000);
+
+    // Remove pulse highlight a bit after auto-close starts
+    wave10PulseTimeout = setTimeout(()=>{
+        highlightIds.forEach(id=>{ const e = document.getElementById(id); if(e) e.classList.remove('pulseHighlight'); });
+        wave10PulseTimeout = null;
+    }, 6000);
+}
+
+// Wave 10 close handler
+// Shared close function that performs a fade-out animation, clears timers and re-enables UI
+function closeWave10Overlay(){
+    const overlay = document.getElementById('wave10Overlay');
+    if(!overlay) return;
+    if(wave10Timeout){ clearTimeout(wave10Timeout); wave10Timeout = null; }
+    if(wave10PulseTimeout){ clearTimeout(wave10PulseTimeout); wave10PulseTimeout = null; }
+
+    // Remove pulse immediately
+    const highlightIds = ['tower-inferno','tower-tesla','upgrade-crit','upgrade-bounce','upgrade-weakness'];
+    highlightIds.forEach(id=>{ const e = document.getElementById(id); if(e) e.classList.remove('pulseHighlight'); });
+
+    // Add fade-out class and wait for animation end to hide
+    overlay.classList.add('waveFadeOut');
+    const onEnd = function(){
+        overlay.style.display = 'none';
+        overlay.classList.remove('waveFadeOut');
+        overlay.removeEventListener('animationend', onEnd);
+        ui.startWaveBtn.disabled = false;
+        ui.fastForwardBtn.disabled = false;
+    };
+    overlay.addEventListener('animationend', onEnd);
+}
+
+const wave10Btn = document.getElementById('wave10CloseBtn');
+if(wave10Btn){
+    wave10Btn.addEventListener('click', ()=>{
+        closeWave10Overlay();
+    });
+}
+
+function showGameCompletion(){
+    const overlay = document.getElementById('gameCompletionOverlay');
+    const finalWaveSpan = document.getElementById('finalWave');
+    const finalMoneySpan = document.getElementById('finalMoney');
+    const finalTowersSpan = document.getElementById('finalTowers');
+    const finalKillsSpan = document.getElementById('finalKills');
+    
+    finalWaveSpan.textContent = waveNumber;
+    finalMoneySpan.textContent = '$' + Math.floor(money);
+    finalTowersSpan.textContent = towers.length;
+    
+    // Count total enemies killed (rough estimate based on waves)
+    let totalKills = 0;
+    for(let w = 1; w < waveNumber; w++){
+        totalKills += 10 + w*4;
+    }
+    finalKillsSpan.textContent = totalKills;
+    
+    overlay.style.display = 'flex';
+    
+    // Disable game interactions during completion
+    ui.startWaveBtn.disabled = true;
+    ui.fastForwardBtn.disabled = true;
+}
+
+function drawTower(t){
+    // Draw unique tower designs based on type
+    ctx.save();
+    ctx.translate(t.x, t.y);
+    
+    if(t.type === 'scout'){
+        // 5-pointed star
+        ctx.fillStyle = t.color;
+        const points = 5;
+        const outerR = 14, innerR = 6;
+        ctx.beginPath();
+        for(let i=0;i<points*2;i++){
+            const angle = (i * Math.PI / points) - Math.PI/2;
+            const r = i % 2 === 0 ? outerR : innerR;
+            const x = Math.cos(angle) * r;
+            const y = Math.sin(angle) * r;
+            if(i === 0) ctx.moveTo(x,y);
+            else ctx.lineTo(x,y);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+    } else if(t.type === 'ranger'){
+        // Triangle pointing up
+        ctx.fillStyle = t.color;
+        ctx.beginPath();
+        ctx.moveTo(0, -14);
+        ctx.lineTo(14, 10);
+        ctx.lineTo(-14, 10);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+    } else if(t.type === 'cannon'){
+        // Circle with square base
+        ctx.fillStyle = t.color;
+        ctx.beginPath();
+        ctx.arc(0, -4, 12, 0, Math.PI*2);
+        ctx.fill();
+        ctx.fillRect(-8, 4, 16, 10);
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.strokeRect(-8, 4, 16, 10);
+    } else if(t.type === 'laser'){
+        // Diamond/rhombus
+        ctx.fillStyle = t.color;
+        ctx.beginPath();
+        ctx.moveTo(0, -14);
+        ctx.lineTo(14, 0);
+        ctx.lineTo(0, 14);
+        ctx.lineTo(-14, 0);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+    } else if(t.type === 'inferno'){
+        // Inferno - flame design
+        ctx.fillStyle = t.color;
+        // Main body - circle
+        ctx.beginPath();
+        ctx.arc(0, 0, 14, 0, Math.PI*2);
+        ctx.fill();
+        // Flame spikes
+        ctx.fillStyle = '#ff6600';
+        for(let i = 0; i < 4; i++){
+            const angle = (i * Math.PI / 2) - Math.PI/2;
+            const x = Math.cos(angle) * 22;
+            const y = Math.sin(angle) * 22;
+            ctx.beginPath();
+            ctx.arc(x, y, 6, 0, Math.PI*2);
+            ctx.fill();
+        }
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, 14, 0, Math.PI*2);
+        ctx.stroke();
+    } else if(t.type === 'tesla'){
+        // Tesla - lightning design
+        ctx.fillStyle = t.color;
+        // Main body - vertical rectangle
+        ctx.fillRect(-8, -16, 16, 32);
+        // Top antenna
+        ctx.fillRect(-2, -20, 4, 4);
+        // Lightning bolts on sides
+        ctx.strokeStyle = '#00ffff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(-14, -8);
+        ctx.lineTo(-18, -4);
+        ctx.lineTo(-14, 0);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(14, -8);
+        ctx.lineTo(18, -4);
+        ctx.lineTo(14, 0);
+        ctx.stroke();
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(-8, -16, 16, 32);
+    }
+    
+    ctx.restore();
+}
+
+function drawEnemy(e){
+    // Draw unique enemy designs based on type
+    ctx.save();
+    ctx.translate(e.x, e.y);
+    
+    if(e.type === 'tyrant'){
+        // Massive golden crown/tyrant
+        ctx.fillStyle = '#ffff00';
+        // Body - large circle
+        ctx.beginPath();
+        ctx.arc(0, 0, 28, 0, Math.PI*2);
+        ctx.fill();
+        
+        // Crown points
+        const crownPoints = 5;
+        ctx.fillStyle = '#ffff88';
+        for(let i = 0; i < crownPoints; i++){
+            const angle = (i * Math.PI * 2 / crownPoints) - Math.PI/2;
+            const x = Math.cos(angle) * 35;
+            const y = Math.sin(angle) * 35;
+            ctx.beginPath();
+            ctx.arc(x, y, 8, 0, Math.PI*2);
+            ctx.fill();
+        }
+        
+        // Eyes
+        ctx.fillStyle = '#000';
+        ctx.fillRect(-12, -8, 6, 8);
+        ctx.fillRect(6, -8, 6, 8);
+        
+        // Outline
+        ctx.strokeStyle = e.stunned ? '#00ffff' : '#ff8800';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(0, 0, 28, 0, Math.PI*2);
+        ctx.stroke();
+        
+        // Stun effect flash
+        if(e.stunned){
+            ctx.strokeStyle = '#00ffff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(0, 0, 35, 0, Math.PI*2);
+            ctx.stroke();
+        }
+    } else if(e.type === 'boss'){
+        // Red skull
+        ctx.fillStyle = '#ff0000';
+        // Main skull shape (large circle)
+        ctx.beginPath();
+        ctx.arc(0, 0, 14, 0, Math.PI*2);
+        ctx.fill();
+        // Jaw (rectangle below)
+        ctx.fillRect(-10, 10, 20, 8);
+        // Eye sockets
+        ctx.fillStyle = '#000';
+        ctx.fillRect(-7, -4, 4, 5);
+        ctx.fillRect(3, -4, 4, 5);
+        // Red outline for menace
+        ctx.strokeStyle = '#ff4444';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, 14, 0, Math.PI*2);
+        ctx.stroke();
+    } else if(e.type === 'speedy'){
+        // Triangle (dart shape)
+        ctx.fillStyle = '#ff88ff';
+        ctx.beginPath();
+        ctx.moveTo(0, -12);
+        ctx.lineTo(10, 10);
+        ctx.lineTo(-10, 10);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+    } else if(e.type === 'brute'){
+        // Red square with border
+        ctx.fillStyle = '#ff5555';
+        ctx.fillRect(-12, -12, 24, 24);
+        ctx.strokeStyle = '#ff0000';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(-12, -12, 24, 24);
+    } else {
+        // Normal - green circle
+        ctx.fillStyle = '#00ff88';
+        ctx.beginPath();
+        ctx.arc(0, 0, 12, 0, Math.PI*2);
+        ctx.fill();
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+    }
+    
+    ctx.restore();
+}
+
+setMoney(money);
+setBase(baseHP);
+ui.waveNum.textContent = waveNumber;
+updateInventoryUI();
+</script>
+</body>
+</html>
